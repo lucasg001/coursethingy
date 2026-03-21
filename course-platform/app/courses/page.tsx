@@ -41,7 +41,7 @@ export default function Courses() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {courses.map((course) => (
-              <Link key={course.id} href={`/course/${course.id}`}>
+              <Link key={course.id} href={`/play/${course.id}`}>
                 <div className="bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer h-full">
                   <div className="bg-blue-500 h-40"></div>
                   <div className="p-4">

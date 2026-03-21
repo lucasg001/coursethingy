@@ -219,7 +219,14 @@ export default function CourseFramework({
                 </div>
 
                 {/* Lesson Title */}
-                <h3 className="text-lg font-bold text-gray-900 mb-2">{lesson.title}</h3>
+                <div className="flex justify-between items-start mb-2 gap-2">
+                  <h3 className="text-lg font-bold text-gray-900">{lesson.title}</h3>
+                  {courseId && (
+                    <a href={`/course/${courseId}/lesson/${lesson.number}`} className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 transition whitespace-nowrap">
+                      Edit Full Lesson
+                    </a>
+                  )}
+                </div>
 
                 {/* Lesson Description */}
                 <p className="text-gray-600 text-sm leading-relaxed mb-4">
