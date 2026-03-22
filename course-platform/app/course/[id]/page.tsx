@@ -6,18 +6,12 @@ import { User } from '@supabase/supabase-js'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import VideoUpload from '@/components/VideoUpload'
-import CourseFramework, { courseFramework, Phase } from '@/components/CourseFramework'
-
-// Note: Check that CourseFramework returns JSX, not void
 
 interface Course {
   id: string
   title: string
   description: string
   video_url?: string
-  checkpoints?: string
-  pdfs?: string
-  framework?: string
 }
 
 export default function CourseEditor() {
@@ -26,30 +20,27 @@ export default function CourseEditor() {
   const router = useRouter()
   
   const [course, setCourse] = useState<Course | null>(null)
-  const [frameworkData, setFrameworkData] = useState<Phase[]>(courseFramework as Phase[])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
+  
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
-  const [checkpoints, setCheckpoints] = useState<string[]>([''])
-  const [pdfs, setPdfs] = useState<{ name: string; url: string }[]>([])
+  const [saving, setSaving] = useState(false)
 
-  const checkAuth = async () => {
-    try {
-      const result = await supabase.auth.getSession()
-      const session = result.data?.session
-      
+  useEffect(() => {
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         router.push('/login')
         return
       }
-
       setUser(session.user)
       fetchCourse(session.user.id)
-    } catch (error) {
-      console.error('Auth error:', error)
-      router.push('/login')
     }
-  }
+    init()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router])
 
   const fetchCourse = async (userId: string) => {
     try {
@@ -61,244 +52,119 @@ export default function CourseEditor() {
         .single()
 
       if (error) {
-        console.error('Fetch course error:', error)
         setLoading(false)
         return
       }
 
       if (courseData) {
         setCourse(courseData)
+        setTitle(courseData.title || '')
+        setDescription(courseData.description || '')
         setVideoUrl(courseData.video_url || '')
-        setCheckpoints(courseData.checkpoints ? JSON.parse(courseData.checkpoints) : [''])
-        setPdfs(courseData.pdfs ? JSON.parse(courseData.pdfs) : [])
-        if (courseData.framework) {
-          try {
-            setFrameworkData(JSON.parse(courseData.framework))
-          } catch {
-            // ignore parse errors
-          }
-        }
       }
       setLoading(false)
-    } catch (error) {
-      console.error('Course fetch exception:', error)
+    } catch {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    checkAuth()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const handleAddCheckpoint = () => {
-    setCheckpoints([...checkpoints, ''])
-  }
-
-  const handleCheckpointChange = (index: number, value: string) => {
-    const updated = [...checkpoints]
-    updated[index] = value
-    setCheckpoints(updated)
-  }
-
-  const handleRemoveCheckpoint = (index: number) => {
-    const updated = checkpoints.filter((_, i) => i !== index)
-    setCheckpoints(updated)
-  }
-
-  const handleSaveCheckpoints = async () => {
-    const filteredCheckpoints = checkpoints.filter(cp => cp.trim())
+  const handleUpdateTextInfo = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
     
-    if (filteredCheckpoints.length === 0) {
-      alert('Please add at least one checkpoint')
-      return
-    }
-
     const { error } = await supabase
       .from('courses')
-      .update({ checkpoints: JSON.stringify(filteredCheckpoints) })
+      .update({ title, description })
       .eq('id', courseId)
-
-    if (!error) {
-      alert('Checkpoints saved!')
+      
+    if (error) {
+      alert(`Failed to update fields: ${error.message}`)
+    } else {
+      alert('Text content saved!')
+      setCourse(prev => prev ? { ...prev, title, description } : null)
     }
+    setSaving(false)
   }
 
-  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (!file.type.includes('pdf')) {
-      alert('Please upload a PDF file')
-      return
-    }
-
-    const fileName = `${courseId}/${Date.now()}_${file.name}`
-    
-    const { error: uploadError } = await supabase.storage
-      .from('course-materials')
-      .upload(fileName, file)
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError)
-      alert('Failed to upload PDF')
-      return
-    }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('course-materials')
-      .getPublicUrl(fileName)
-
-    const newPdfs = [...pdfs, { name: file.name, url: publicUrl }]
-    setPdfs(newPdfs)
-
-    const { error: updateError } = await supabase
-      .from('courses')
-      .update({ pdfs: JSON.stringify(newPdfs) })
-      .eq('id', courseId)
-
-    if (!updateError) {
-      alert('PDF uploaded!')
-      e.target.value = ''
-    }
-  }
-
-  const handleRemovePdf = async (index: number) => {
-    const updated = pdfs.filter((_, i) => i !== index)
-    setPdfs(updated)
-
-    const { error } = await supabase
-      .from('courses')
-      .update({ pdfs: JSON.stringify(updated) })
-      .eq('id', courseId)
-
-    if (!error) {
-      alert('PDF removed!')
-    }
-  }
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>
-  if (!course) return <div className="min-h-screen flex items-center justify-center">Course not found</div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500 font-bold tracking-wide">Loading course configuration...</div>
+  if (!course) return <div className="min-h-screen flex items-center justify-center text-gray-500 font-bold tracking-wide">Course not found.</div>
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <Link href="/dashboard" className="text-blue-600 hover:underline">
-            ← Back to Dashboard
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-blue-100 selection:text-blue-900 flex flex-col">
+      <nav className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5 flex justify-between items-center transition-all">
+          <Link href="/dashboard" className="text-gray-600 hover:text-blue-600 font-bold transition-colors">
+            Back to Dashboard
           </Link>
-          <h1 className="text-2xl font-bold">{course.title}</h1>
+          <div className="bg-blue-50 text-blue-800 font-extrabold px-5 py-2 rounded-full text-sm border border-blue-100 shadow-sm tracking-wide">
+            {course.title}
+          </div>
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="space-y-8">
-          {/* Course Framework Section */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-lg shadow">
-            <h2 className="text-2xl font-bold mb-6">📚 Course Structure</h2>
-            <CourseFramework
-              courseId={courseId}
-              initialFramework={frameworkData}
-              onFrameworkSave={async updated => {
-                await supabase
-                  .from('courses')
-                  .update({ framework: JSON.stringify(updated) })
-                  .eq('id', courseId)
-                setFrameworkData(updated)
-              }}
-            />
+      <div className="max-w-4xl mx-auto px-6 lg:px-8 py-16 space-y-12 w-full flex-grow">
+        
+        {/* Core Details Editor */}
+        <div className="bg-white p-10 md:p-14 rounded-2xl shadow-sm border border-gray-100 transition-all">
+          <div className="mb-10 text-center md:text-left">
+            <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Course Text Content</h2>
+            <p className="text-gray-500 font-medium text-lg mt-2">Modify the written payload for this module.</p>
           </div>
-
-          {/* Video Section */}
-          <VideoUpload
-            courseId={courseId}
-            currentVideoUrl={videoUrl}
-            onVideoUploaded={(newUrl) => {
-              setVideoUrl(newUrl)
-              if (user && user.id) {
-                fetchCourse(user.id)
-              }
-            }}
-          />
-
-          {/* Lesson Checkpoints Section */}
-          <div className="bg-white p-8 rounded-lg shadow">
-            <h2 className="text-2xl font-bold mb-4">✓ Lesson Checkpoints</h2>
-            <div className="space-y-4">
-              {checkpoints.map((checkpoint, index) => (
-                <div key={index} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={checkpoint}
-                    onChange={(e) => handleCheckpointChange(index, e.target.value)}
-                    placeholder="Enter checkpoint (e.g., 'Introduction completed')"
-                    className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {checkpoints.length > 1 && (
-                    <button
-                      onClick={() => handleRemoveCheckpoint(index)}
-                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-              ))}
-              <div className="flex gap-2">
-                <button
-                  onClick={handleAddCheckpoint}
-                  className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
-                >
-                  Add Checkpoint
-                </button>
-                <button
-                  onClick={handleSaveCheckpoints}
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                >
-                  Save Checkpoints
-                </button>
-              </div>
+          
+          <form onSubmit={handleUpdateTextInfo} className="space-y-8">
+            <div>
+              <label className="block text-xs font-extrabold uppercase tracking-widest text-blue-600/80 mb-3">Headlining Title</label>
+              <input
+                type="text"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full px-5 py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-gray-50 hover:bg-white transition-colors text-xl font-bold shadow-sm"
+              />
             </div>
+
+            <div>
+              <label className="block text-xs font-extrabold uppercase tracking-widest text-blue-600/80 mb-3">Comprehensive Description</label>
+              <textarea
+                required
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full px-5 py-5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-gray-50 hover:bg-white transition-colors h-48 resize-none text-lg font-medium leading-relaxed shadow-sm block"
+              />
+            </div>
+
+            <div className="pt-6 border-t border-gray-100">
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full bg-gray-900 text-white font-extrabold py-5 rounded-xl hover:bg-gray-800 transition-all shadow-md hover:shadow-xl transform hover:-translate-y-0.5 text-lg disabled:opacity-50"
+              >
+                {saving ? 'Saving Records...' : 'Save Text Fields'}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Video Upload Section */}
+        <div className="bg-white p-10 md:p-14 rounded-2xl shadow-sm border border-gray-100 transition-all hover:shadow-md">
+          <div className="mb-6">
+            <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Media Payload</h2>
+            <p className="text-gray-500 font-medium text-lg mt-2">Attach the primary video lecture for this course.</p>
           </div>
-
-          {/* PDF Upload Section */}
-          <div className="bg-white p-8 rounded-lg shadow">
-            <h2 className="text-2xl font-bold mb-4">📄 Course Materials (PDF)</h2>
-            <div className="space-y-4">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                <label className="cursor-pointer">
-                  <div className="text-4xl mb-2">📁</div>
-                  <p className="text-gray-600 mb-2">Click to upload PDF</p>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={handlePdfUpload}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-
-              {pdfs.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-gray-700">Uploaded Materials:</h3>
-                  {pdfs.map((pdf, index) => (
-                    <div key={index} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
-                      <a href={pdf.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
-                        {pdf.name}
-                      </a>
-                      <button
-                        onClick={() => handleRemovePdf(index)}
-                        className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+          <div className="pt-4">
+              <VideoUpload
+                courseId={courseId}
+                currentVideoUrl={videoUrl}
+                onVideoUploaded={(newUrl) => {
+                  setVideoUrl(newUrl)
+                  if (user && user.id) {
+                    fetchCourse(user.id)
+                  }
+                }}
+              />
           </div>
         </div>
+
       </div>
     </div>
   )

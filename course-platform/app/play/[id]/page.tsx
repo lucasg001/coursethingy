@@ -2,15 +2,21 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useParams, useRouter } from 'next/navigation'
+import { User } from '@supabase/supabase-js'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Phase } from '@/components/CourseFramework'
+
+interface Course {
+  id: string
+  title: string
+  description: string
+  video_url?: string
+}
 
 export default function PlayCourse() {
   const params = useParams()
   const courseId = params.id as string
-  const [course, setCourse] = useState<any>(null)
-  const [framework, setFramework] = useState<Phase[]>([])
+  const [course, setCourse] = useState<Course | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -27,71 +33,83 @@ export default function PlayCourse() {
         .single()
 
       if (error || !data) {
-        console.error('Fetch course error:', error)
         setLoading(false)
         return
       }
 
       setCourse(data)
-      if (data.framework) {
-        setFramework(JSON.parse(data.framework))
-      }
       setLoading(false)
-    } catch (err) {
-      console.error(err)
+    } catch {
       setLoading(false)
     }
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-black">Loading course...</div>
-  if (!course) return <div className="min-h-screen flex items-center justify-center text-black">Course not found</div>
+  const getEmbedUrl = (url: string) => {
+     if (!url) return ''
+     const videoIdMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/)
+     if (videoIdMatch && videoIdMatch[1]) {
+       return `https://www.youtube.com/embed/${videoIdMatch[1]}`
+     }
+     return url
+  }
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500 font-medium tracking-wide">Loading course content...</div>
+  if (!course) return <div className="min-h-screen flex items-center justify-center text-gray-500 font-medium tracking-wide">Course records not found.</div>
+
+  const embedUrl = getEmbedUrl(course.video_url || '')
 
   return (
-    <div className="min-h-screen bg-gray-50 text-black">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <Link href="/courses" className="text-blue-600 hover:underline font-semibold">
-            ← Explore Courses
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-blue-100 selection:text-blue-900">
+      <nav className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5 flex justify-between items-center transition-all">
+          <Link href="/courses" className="text-gray-600 font-bold hover:text-blue-600 transition-colors flex items-center gap-2">
+            <span>&larr;</span> Back to Student Catalog
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">{course.title}</h1>
+          <div className="bg-gray-100 text-gray-800 font-extrabold px-5 py-2 rounded-full text-sm shadow-sm border border-gray-200">
+            {course.title}
+          </div>
         </div>
       </nav>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-white p-8 rounded-lg shadow mb-8 text-center bg-gradient-to-br from-blue-500 to-indigo-600 text-white leading-relaxed">
-          <h2 className="text-4xl font-extrabold mb-4">{course.title}</h2>
-          <p className="text-xl opacity-90">{course.description}</p>
-        </div>
-
-        <h3 className="text-2xl font-bold mb-6 text-gray-900">Course Curriculum</h3>
-        <div className="space-y-6">
-          {framework.map((phase, pIdx) => (
-            <div key={pIdx} className="border rounded-lg bg-white shadow-sm overflow-hidden border-gray-200">
-              <div className="bg-gray-100 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <div>
-                  <h4 className="text-lg font-bold text-gray-900">{phase.title}</h4>
-                  <p className="text-sm text-gray-600 font-medium">{phase.subtitle}</p>
+      <div className="max-w-5xl mx-auto px-6 lg:px-8 py-16">
+        <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+          
+          {course.video_url ? (
+             <div className="aspect-video bg-black flex items-center justify-center relative overflow-hidden group border-b border-gray-100">
+                {embedUrl.includes('youtube.com/embed') ? (
+                  <iframe 
+                    src={embedUrl} 
+                    className="absolute inset-0 w-full h-full border-0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowFullScreen 
+                  />
+                ) : (
+                  <a href={course.video_url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 flex items-center justify-center bg-gray-900 hover:bg-gray-800 transition-colors w-full h-full">
+                    <div className="text-center text-white p-8">
+                       <p className="font-extrabold text-2xl tracking-tight mb-6">View External Video</p>
+                       <span className="bg-blue-600 text-white font-bold py-4 px-8 rounded-xl hover:bg-blue-700 transition-colors shadow-lg">Open Media Link</span>
+                    </div>
+                  </a>
+                )}
+             </div>
+          ) : (
+             <div className="aspect-video bg-gray-900 flex items-center justify-center relative overflow-hidden border-b border-gray-100">
+                <div className="text-center text-white p-8 opacity-50">
+                   <p className="font-extrabold text-3xl tracking-tight mb-3">No Video Assigned</p>
+                   <p className="text-gray-400 font-medium text-lg">This course is entirely text-based.</p>
                 </div>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {phase.lessons.map((lesson, lIdx) => (
-                  <Link 
-                    key={lIdx} 
-                    href={`/play/${courseId}/lesson/${lesson.number}`}
-                    className="block px-6 py-4 hover:bg-blue-50 transition flex justify-between items-center group"
-                  >
-                    <div>
-                      <h5 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-700 transition">Lesson {lesson.number}: {lesson.title}</h5>
-                      <p className="text-sm text-gray-600 line-clamp-2">{lesson.description}</p>
-                    </div>
-                    <div className="text-blue-600 bg-blue-100 px-4 py-2 rounded-full text-sm font-bold ml-4 whitespace-nowrap group-hover:bg-blue-600 group-hover:text-white transition">
-                      Start →
-                    </div>
-                  </Link>
-                ))}
-              </div>
+             </div>
+          )}
+          
+          <div className="p-12 md:p-16 text-left bg-white">
+            <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-10 leading-tight tracking-tight">{course.title}</h1>
+            
+            <div className="prose max-w-none text-gray-700 leading-relaxed bg-gray-50 border border-gray-100 rounded-2xl p-10 md:p-12 shadow-inner">
+              {course.description.split('\n').map((line, i) => (
+                <p key={i} className="mb-6 last:mb-0 text-xl font-medium tracking-wide">{line}</p>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </div>

@@ -46,7 +46,6 @@ export default function LessonEditor() {
         .single()
 
       if (error || !data) {
-        console.error('Fetch course error:', error)
         setLoading(false)
         return
       }
@@ -66,20 +65,17 @@ export default function LessonEditor() {
             break
           }
         }
-        if (!found) {
-          console.error("Lesson not found")
-        }
+        if (!found) console.error("Lesson not found")
       }
       setLoading(false)
     } catch (err) {
-      console.error(err)
       setLoading(false)
     }
   }
 
   const handleSave = async () => {
     if (!course) return
-    const updatedFramework = JSON.parse(JSON.stringify(framework)) as Phase[] // deep copy
+    const updatedFramework = JSON.parse(JSON.stringify(framework)) as Phase[]
     for (const phase of updatedFramework) {
       const lessonIndex = phase.lessons.findIndex(l => l.number === lessonNumber)
       if (lessonIndex !== -1) {
@@ -95,57 +91,71 @@ export default function LessonEditor() {
       .eq('id', courseId)
       
     if (error) {
-      alert('Failed to save lesson details.')
+      alert('Failed to save lesson configurations.')
     } else {
       setFramework(updatedFramework)
-      alert('Lesson saved successfully!')
       router.push(`/course/${courseId}`)
     }
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>
-  if (!course) return <div className="min-h-screen flex items-center justify-center">Course or Lesson not found</div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500 font-medium">Authenticating configuration...</div>
+  if (!course) return <div className="min-h-screen flex items-center justify-center text-gray-500 font-medium">Record missing or unauthorized.</div>
 
   return (
-    <div className="min-h-screen bg-gray-50 text-black">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <Link href={`/course/${courseId}`} className="text-blue-600 hover:underline font-semibold">
-            ← Back to Course Editor
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-blue-100 selection:text-blue-900">
+      <nav className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5 flex justify-between items-center transition-all">
+          <Link href={`/course/${courseId}`} className="text-gray-600 hover:text-blue-600 font-bold transition-colors">
+            Discard and Return
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Edit Lesson {lessonNumber}</h1>
+          <div className="bg-gray-100 text-gray-800 font-extrabold px-5 py-2 rounded-full text-sm tracking-wide border border-gray-200 shadow-sm">
+            Updating Module {lessonNumber}
+          </div>
         </div>
       </nav>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-white p-8 rounded-lg shadow space-y-6">
-          <h2 className="text-3xl font-bold text-blue-900 border-b pb-4">✏️ Lesson Details</h2>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Lesson Title</label>
-            <input 
-              type="text"
-              value={lessonTitle}
-              onChange={(e) => setLessonTitle(e.target.value)}
-              className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg transition"
-              placeholder="E.g. The Promise"
-            />
+      <div className="max-w-3xl mx-auto px-6 lg:px-8 py-16">
+        <div className="bg-white p-12 rounded-2xl shadow-xl border border-gray-100 space-y-8 relative overflow-hidden">
+          
+          <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+
+          <div className="border-b border-gray-100 pb-6 mb-8 mt-2">
+            <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Lesson Parameters</h2>
+            <p className="text-gray-500 font-medium mt-2">Adjust content definitions directly reflected in the curriculum map.</p>
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Lesson Description</label>
-            <textarea 
-              value={lessonDescription}
-              onChange={(e) => setLessonDescription(e.target.value)}
-              rows={6}
-              className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg transition"
-              placeholder="Describe the objective and format of this lesson..."
-            />
+          
+          <div className="space-y-8">
+            <div>
+              <label className="block text-sm font-extrabold text-gray-700 tracking-wide uppercase mb-3 text-blue-900/80">Title Assignment</label>
+              <input 
+                type="text"
+                value={lessonTitle}
+                onChange={(e) => setLessonTitle(e.target.value)}
+                className="w-full px-5 py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-gray-50 hover:bg-white transition-colors text-lg font-bold placeholder-gray-400 shadow-sm"
+                placeholder="Declare module objective..."
+              />
+            </div>
+            
+            <div>
+               <label className="block text-sm font-extrabold text-gray-700 tracking-wide uppercase mb-3 text-blue-900/80">Instructional Description</label>
+              <textarea 
+                value={lessonDescription}
+                onChange={(e) => setLessonDescription(e.target.value)}
+                rows={8}
+                className="w-full px-5 py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-gray-50 hover:bg-white transition-colors text-lg font-medium resize-none placeholder-gray-400 leading-relaxed shadow-sm"
+                placeholder="Provide comprehensive details about actionable items within this module structure."
+              />
+            </div>
           </div>
-          <button 
-            onClick={handleSave}
-            className="w-full bg-blue-600 text-white font-bold py-4 rounded-lg hover:bg-blue-700 hover:shadow-lg transition text-lg mt-8 inline-block"
-          >
-            Save Lesson
-          </button>
+          
+          <div className="pt-6 border-t border-gray-100 mt-10">
+            <button 
+              onClick={handleSave}
+              className="w-full bg-blue-600 text-white font-extrabold py-5 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1 text-lg tracking-wide"
+            >
+              Commit Configuration Changes
+            </button>
+          </div>
         </div>
       </div>
     </div>

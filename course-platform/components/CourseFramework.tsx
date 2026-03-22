@@ -161,7 +161,9 @@ const LessonCard = memo(function LessonCard({
       >
         <span>Lesson Materials {files.length > 0 && <span className="ml-2 bg-gray-200 text-gray-700 py-0.5 px-2 rounded-full text-xs">{files.length}</span>}</span>
         <span className="text-gray-400 group-hover:text-gray-600 transition-colors">
-          {isExpanded ? '▼' : '▶'}
+          <svg className={`w-6 h-6 transform transition-transform duration-300 ${isExpanded ? 'rotate-180 text-blue-600' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
         </span>
       </button>
 
@@ -177,7 +179,7 @@ const LessonCard = memo(function LessonCard({
               disabled={isUploading}
             />
             <div className="flex flex-col items-center gap-2 relative z-0">
-              <span className="text-3xl group-hover:scale-110 transition-transform duration-300">📁</span>
+              <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center font-black text-2xl group-hover:scale-110 transition-transform duration-300 mb-2">+</div>
               <span className="text-sm font-semibold text-gray-700 group-hover:text-blue-700 transition-colors">
                 {isUploading ? 'Uploading...' : 'Click or drop files'}
               </span>
@@ -192,7 +194,7 @@ const LessonCard = memo(function LessonCard({
                 {files.map((file, idx) => (
                   <div key={idx} className="flex items-center justify-between bg-white px-4 py-3 rounded-lg border border-gray-100 shadow-sm hover:border-gray-300 transition-colors group/file">
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-lg">📄</span>
+                      <span className="text-gray-400 font-bold text-xs uppercase tracking-widest bg-gray-100 px-2 py-1 rounded">File</span>
                       <span className="text-sm font-medium text-gray-700 truncate group-hover/file:text-blue-600 transition-colors">
                         {file.name}
                       </span>
@@ -328,7 +330,7 @@ export default function CourseFramework({
       
       <div className="bg-blue-50 border-l-4 border-blue-500 p-8 rounded-r-xl mt-16 shadow-sm">
         <h3 className="text-2xl font-extrabold text-gray-900 mb-6 flex items-center gap-2">
-          <span>💡</span> Quick Reference
+          <span className="text-blue-600 bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center font-black">!</span> Quick Reference
         </h3>
         <ul className="space-y-4 text-gray-700 text-lg">
           <li className="flex items-start gap-4">

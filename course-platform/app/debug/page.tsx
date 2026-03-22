@@ -27,7 +27,7 @@ export default function Debug() {
         result.supabase = `❌ Failed: ${error.message}`
         result.error = error.message
       } else if (data) {
-        result.supabase = '✅ Supabase connected'
+        result.supabase = '[OK] Supabase connected'
       } else {
         result.supabase = '⚠️ Supabase returned no data'
       }
@@ -35,13 +35,13 @@ export default function Debug() {
       // Check auth
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        result.auth = `✅ Authenticated as ${session.user.email}`
+        result.auth = `[OK] Authenticated as ${session.user.email}`
       } else {
         result.auth = '⚠️ Not authenticated (this is normal for non-logged in users)'
       }
 
       // Check tables
-      result.tables = '✅ Courses table accessible'
+      result.tables = '[OK] Courses table accessible'
     } catch (error: unknown) {
       result.error = (error as Error).message
       result.supabase = `❌ Error: ${(error as Error).message}`
@@ -94,7 +94,7 @@ export default function Debug() {
         </div>
 
         <div className="mt-4 text-sm text-gray-600">
-          <p>💡 If Supabase shows an error, check:</p>
+          <p><span className="font-bold">Note:</span> If Supabase shows an error, check:</p>
           <ul className="list-disc list-inside mt-2 space-y-1">
             <li>.env.local file has NEXT_PUBLIC_SUPABASE_URL</li>
             <li>.env.local file has NEXT_PUBLIC_SUPABASE_ANON_KEY</li>
