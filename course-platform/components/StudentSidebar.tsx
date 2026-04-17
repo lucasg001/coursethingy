@@ -58,6 +58,7 @@ export default function StudentSidebar() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProfile()
     const handleUpdate = () => fetchProfile()
     window.addEventListener('gamification_update', handleUpdate)

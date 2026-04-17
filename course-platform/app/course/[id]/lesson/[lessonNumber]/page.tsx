@@ -14,10 +14,9 @@ export default function LessonEditor() {
   const lessonNumber = parseInt(lessonNumberStr, 10)
   const router = useRouter()
   
-  const [course, setCourse] = useState<any>(null)
+  const [course, setCourse] = useState<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
   const [framework, setFramework] = useState<Phase[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<User | null>(null)
   
   const [lessonTitle, setLessonTitle] = useState('')
   const [lessonDescription, setLessonDescription] = useState('')
@@ -29,7 +28,6 @@ export default function LessonEditor() {
         router.push('/login')
         return
       }
-      setUser(session.user)
       fetchCourse(session.user.id)
     }
     init()
