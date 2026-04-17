@@ -19,14 +19,23 @@ export default function Login() {
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
       
-      if (role === 'creator') {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single()
+      
+      // Strict separation check
+      if (profile?.role !== role) {
+        // Sign out if role mismatch to enforce strict separation
+        await supabase.auth.signOut()
+        throw new Error(`This account belongs to a ${profile?.role}. Please login through the correct tab.`)
+      }
+
+      if (profile?.role === 'creator') {
         router.push('/dashboard')
       } else {
         router.push('/courses')
@@ -38,84 +47,120 @@ export default function Login() {
     }
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-16 px-6 sm:px-8 font-sans selection:bg-blue-100 selection:text-blue-900">
-      <div className="max-w-md w-full bg-white p-10 rounded-3xl shadow-xl border border-gray-100 transform transition-all">
-        <div className="text-center mb-10">
-          <Link href="/" className="text-2xl font-extrabold tracking-tight text-blue-900 hover:text-blue-700 transition-colors inline-block mb-4">
-            Course Platform
-          </Link>
-          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight mt-2">Welcome back</h2>
-          <p className="text-gray-500 font-medium mt-3">Select your portal and enter your details.</p>
-        </div>
-        
-        <form className="space-y-6" onSubmit={handleLogin}>
-          {error && <div className="bg-red-50 text-red-700 p-4 rounded-xl font-bold border border-red-100 text-sm shadow-sm">{error}</div>}
-          
-          <div className="grid grid-cols-2 gap-4 mb-2">
-            <button
-              type="button"
-              onClick={() => setRole('student')}
-              className={`p-4 rounded-xl border-2 text-center transition-all duration-300 flex flex-col items-center gap-2 ${role === 'student' ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm transform scale-[1.02]' : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'}`}
-            >
-               <svg className={`w-8 h-8 ${role === 'student' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-               </svg>
-               <span className="font-extrabold tracking-wide">Student</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setRole('creator')}
-              className={`p-4 rounded-xl border-2 text-center transition-all duration-300 flex flex-col items-center gap-2 ${role === 'creator' ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm transform scale-[1.02]' : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'}`}
-            >
-               <svg className={`w-8 h-8 ${role === 'creator' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-               </svg>
-               <span className="font-extrabold tracking-wide">Creator</span>
-            </button>
-          </div>
+  const roleOptions = [
+    {
+      value: 'student',
+      label: 'Student',
+      desc: 'Access your courses',
+      icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
+    },
+    {
+      value: 'creator',
+      label: 'Creator',
+      desc: 'Manage your content',
+      icon: 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z',
+    }
+  ]
 
-          <div className="space-y-5">
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0f] py-16 px-6 sm:px-8 font-sans relative overflow-hidden">
+      {/* Cleaner, simplified background without purple gradients */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="max-w-md w-full relative z-10">
+        <div className="bg-[#12121a] border border-white/10 p-10 rounded-3xl shadow-2xl backdrop-blur-xl">
+          <div className="text-center mb-8">
+            <Link href="/" className="inline-flex items-center gap-2 mb-6 group">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center group-hover:bg-blue-500 transition-colors">
+                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+              </div>
+              <span className="text-xl font-extrabold tracking-tight text-white">Course Platform</span>
+            </Link>
+            <h2 className="text-3xl font-extrabold text-white tracking-tight">Welcome back</h2>
+            <p className="text-gray-400 font-medium mt-2">Sign in to continue your journey.</p>
+          </div>
+          
+          {/* Role Selection Tabs */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            {roleOptions.map((option) => {
+              const isSelected = role === option.value
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setRole(option.value as 'student' | 'creator')}
+                  className={`p-4 rounded-2xl border-2 text-center transition-all duration-200 flex flex-col items-center gap-2 ${
+                    isSelected
+                      ? option.value === 'creator'
+                        ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300'
+                        : 'border-blue-500/60 bg-blue-500/10 text-blue-300'
+                      : 'border-white/10 bg-white/5 text-gray-500 hover:border-white/20 hover:bg-white/8'
+                  }`}
+                >
+                  <svg className={`w-7 h-7 ${isSelected ? (option.value === 'creator' ? 'text-emerald-400' : 'text-blue-400') : 'text-gray-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={option.icon} />
+                  </svg>
+                  <span className="font-extrabold">{option.label}</span>
+                  <span className={`text-xs ${isSelected ? 'opacity-70' : 'text-gray-600'}`}>{option.desc}</span>
+                </button>
+              )
+            })}
+          </div>
+          
+          <form className="space-y-5" onSubmit={handleLogin}>
+            {error && (
+              <div className="bg-red-500/10 text-red-400 p-4 rounded-xl font-bold border border-red-500/20 text-sm">
+                {error}
+              </div>
+            )}
+
             <div>
-              <label className="block text-sm font-extrabold tracking-widest uppercase text-gray-500 mb-2">Email Address</label>
+              <label className="block text-xs font-extrabold tracking-widest uppercase text-gray-400 mb-2">Email Address</label>
               <input
                 type="email"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-5 py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-gray-50 hover:bg-white transition-colors font-bold shadow-sm"
+                className={`w-full px-5 py-4 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent text-white bg-white/5 hover:bg-white/8 transition-colors font-bold placeholder-gray-600 ${role === 'creator' ? 'focus:ring-emerald-500' : 'focus:ring-blue-500'}`}
                 required
               />
             </div>
-            
+
             <div>
-              <label className="block text-sm font-extrabold tracking-widest uppercase text-gray-500 mb-2">Password</label>
+              <label className="block text-xs font-extrabold tracking-widest uppercase text-gray-400 mb-2">Password</label>
               <input
                 type="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-5 py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-gray-50 hover:bg-white transition-colors font-bold shadow-sm"
+                className={`w-full px-5 py-4 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent text-white bg-white/5 hover:bg-white/8 transition-colors font-bold placeholder-gray-600 ${role === 'creator' ? 'focus:ring-emerald-500' : 'focus:ring-blue-500'}`}
                 required
               />
             </div>
-          </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full text-white font-extrabold py-4 rounded-xl disabled:opacity-50 transition-all shadow-lg transform hover:-translate-y-0.5 duration-200 mt-2 tracking-wide text-lg ${
+                role === 'creator' 
+                  ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/40 hover:shadow-emerald-500/30' 
+                  : 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/40 hover:shadow-blue-500/30'
+              }`}
+            >
+              {loading ? 'Authenticating...' : `Sign In as ${role === 'creator' ? 'Creator' : 'Student'}`}
+            </button>
+          </form>
           
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white font-extrabold py-4 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md hover:shadow-xl transform hover:-translate-y-0.5 duration-300 mt-6 tracking-wide text-lg"
-          >
-            {loading ? 'Authenticating...' : `Log In as ${role === 'student' ? 'Student' : 'Creator'}`}
-          </button>
-        </form>
-        
-        <p className="text-center mt-10 text-gray-500 font-medium text-sm">
-          Don&apos;t have an account?{' '}
-          <Link href="/signup" className="text-blue-600 hover:text-blue-800 font-extrabold transition-colors">
-            Sign up
-          </Link>
-        </p>
+          <p className="text-center mt-8 text-gray-500 font-medium text-sm">
+            Don&apos;t have an account?{' '}
+            <Link href="/signup" className="text-blue-400 hover:text-blue-300 font-extrabold transition-colors">
+              Sign up
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   )

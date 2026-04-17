@@ -29,9 +29,10 @@ CREATE INDEX IF NOT EXISTS idx_courses_created_at ON courses(created_at);
 ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- RLS Policy: Users can see their own courses
-CREATE POLICY "Users can view their own courses" ON courses
-  FOR SELECT USING (auth.uid() = instructor_id);
+-- RLS Policy: Authenticated users can view all courses
+DROP POLICY IF EXISTS "Users can view their own courses" ON courses;
+CREATE POLICY "Authenticated users can view all courses" ON courses
+  FOR SELECT USING (auth.role() = 'authenticated' OR auth.role() = 'anon');
 
 -- RLS Policy: Users can insert their own courses
 CREATE POLICY "Users can insert their own courses" ON courses
@@ -46,9 +47,10 @@ CREATE POLICY "Users can update their own courses" ON courses
 CREATE POLICY "Users can delete their own courses" ON courses
   FOR DELETE USING (auth.uid() = instructor_id);
 
--- RLS Policy: Users can view their own profile
-CREATE POLICY "Users can view their own profile" ON profiles
-  FOR SELECT USING (auth.uid() = id);
+-- RLS Policy: Authenticated users can view all profiles (needed for following creators)
+DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
+CREATE POLICY "Authenticated users can view all profiles" ON profiles
+  FOR SELECT USING (auth.role() = 'authenticated' OR auth.role() = 'anon');
 
 -- RLS Policy: Users can insert their own profile
 CREATE POLICY "Users can insert their own profile" ON profiles

@@ -15,6 +15,7 @@ interface Course {
 
 export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null)
+  const [fullName, setFullName] = useState('')
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -24,10 +25,12 @@ export default function Dashboard() {
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
-      }
+      if (!session) { router.push('/login'); return }
+
+      const { data: profile } = await supabase.from('profiles').select('role, full_name').eq('id', session.user.id).single()
+      if (profile?.role !== 'creator') { router.push('/courses'); return }
+
+      setFullName(profile.full_name || '')
       setUser(session.user)
       await fetchCourses(session.user.id)
       setLoading(false)
@@ -43,23 +46,17 @@ export default function Dashboard() {
 
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user || !user.id) return
+    if (!user?.id) return
 
     try {
-      const { data, error } = await supabase
-        .from('courses')
-        .insert({
-          title: formData.title,
-          description: formData.description,
-          instructor_id: user.id,
-          framework: '[]'
-        })
-        .select()
+      const { data, error } = await supabase.from('courses').insert({
+        title: formData.title,
+        description: formData.description,
+        instructor_id: user.id,
+        framework: '[]'
+      }).select()
 
-      if (error) {
-        alert(`Failed to create: ${error.message}`)
-        throw error
-      }
+      if (error) throw error
 
       if (data && data.length) {
         setCourses([...courses, data[0]])
@@ -75,116 +72,113 @@ export default function Dashboard() {
     router.push('/')
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500 font-medium tracking-wide">Initializing dashboard...</div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400 font-medium bg-[#0a0a0f]">Initializing Studio...</div>
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-blue-100 selection:text-blue-900">
-      <nav className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5 flex justify-between items-center transition-all">
-          <Link href="/" className="text-2xl font-extrabold tracking-tight text-blue-900 hover:text-blue-700 transition-colors">
-            Course Platform
+    <div className="min-h-screen bg-[#0a0a0f] text-white font-sans relative overflow-hidden">
+      {/* Background glows */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-amber-700/8 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-orange-700/6 rounded-full blur-[100px]"></div>
+      </div>
+
+      {/* Nav */}
+      <nav className="relative z-50 border-b border-white/8 backdrop-blur-xl bg-black/20 sticky top-0">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4 flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center group-hover:bg-amber-400 transition-colors shadow-lg shadow-amber-900/40">
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+            </div>
+            <span className="text-lg font-extrabold tracking-tight">Creator Studio</span>
           </Link>
-          <div className="flex gap-4 items-center">
-            <Link href="/courses" className="text-gray-600 font-bold hover:text-blue-600 transition-colors mr-6">
-              Student Catalog
-            </Link>
-            <button 
-              onClick={handleLogout}
-              className="px-5 py-2.5 bg-gray-900 text-white font-bold rounded-lg hover:bg-gray-800 transition-all shadow-sm hover:shadow-md"
-            >
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500 font-bold hidden sm:block">{fullName}</span>
+            <div className="inline-flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-widest">
+              Creator
+            </div>
+            <button onClick={handleLogout} className="px-4 py-2 bg-white/8 border border-white/10 text-gray-300 font-bold rounded-lg hover:bg-white/12 hover:text-white transition-all text-sm">
               Logout
             </button>
           </div>
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-12 gap-6 bg-white p-10 rounded-2xl shadow-sm border border-gray-100">
+      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 py-12">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-12 gap-6 bg-white/3 border border-white/8 p-8 rounded-3xl">
           <div>
-            <h2 className="text-4xl font-extrabold text-gray-900 tracking-tight">Creator Dashboard</h2>
-            <p className="text-lg text-gray-500 font-medium mt-2">Manage and publish your video courses.</p>
+            <h2 className="text-4xl font-extrabold text-white tracking-tight mb-1">Creator Dashboard</h2>
+            <p className="text-gray-400 font-medium">Manage your published courses and grow your audience.</p>
           </div>
           <button
             onClick={() => setShowForm(!showForm)}
-            disabled={!user}
-            className="bg-blue-600 text-white font-bold px-8 py-4 rounded-xl hover:bg-blue-700 transition-all shadow-md hover:shadow-xl transform hover:-translate-y-0.5 text-lg"
+            className={`px-8 py-3.5 rounded-xl font-extrabold transition-all text-sm whitespace-nowrap ${
+              showForm
+                ? 'bg-white/8 text-gray-300 border border-white/10 hover:bg-white/12'
+                : 'bg-amber-500 hover:bg-amber-400 text-white shadow-lg shadow-amber-900/30'
+            }`}
           >
-            {showForm ? 'Cancel Form' : '+ New Blank Course'}
+            {showForm ? 'Cancel' : '+ New Course'}
           </button>
         </div>
 
+        {/* Create Form */}
         {showForm && (
-          <div className="bg-white p-10 rounded-2xl shadow-xl border border-gray-100 mb-12 transform transition-all animate-in fade-in slide-in-from-top-4 duration-300">
-            <h3 className="text-2xl font-extrabold text-gray-900 tracking-tight mb-6">Course Foundation</h3>
-            <form onSubmit={handleCreateCourse} className="space-y-6">
+          <div className="bg-white/3 border border-white/10 p-8 rounded-3xl mb-10">
+            <h3 className="text-2xl font-extrabold text-white mb-6">New Course</h3>
+            <form onSubmit={handleCreateCourse} className="space-y-5">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2 whitespace-nowrap uppercase tracking-widest text-blue-600/80">Subject Title</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-5 py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-gray-50 hover:bg-white transition-colors font-bold text-lg shadow-sm"
-                  placeholder="E.g., Master Advanced TypeScript"
-                />
+                <label className="block text-xs font-extrabold tracking-widest uppercase text-gray-400 mb-2">Course Title</label>
+                <input type="text" required placeholder="E.g., Master TypeScript in 30 Days"
+                  value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="w-full px-5 py-4 border border-white/10 rounded-xl bg-white/5 text-white font-bold placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-amber-500 text-lg" />
               </div>
-
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2 whitespace-nowrap uppercase tracking-widest text-blue-600/80">Core Description</label>
-                <textarea
-                  required
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-5 py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-gray-50 hover:bg-white transition-colors h-40 resize-none font-medium text-lg leading-relaxed shadow-sm"
-                  placeholder="What will students learn in this single-video course?"
-                />
+                <label className="block text-xs font-extrabold tracking-widest uppercase text-gray-400 mb-2">Description</label>
+                <textarea required placeholder="What will students learn?"
+                  value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-5 py-4 border border-white/10 rounded-xl bg-white/5 text-white font-medium placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-amber-500 h-36 resize-none text-lg leading-relaxed" />
               </div>
-
-              <div className="pt-4 border-t border-gray-100">
-                <button
-                  type="submit"
-                  className="w-full bg-blue-600 text-white font-extrabold py-5 rounded-xl hover:bg-blue-700 transition-all shadow-md hover:shadow-xl transform hover:-translate-y-0.5 text-lg"
-                >
-                  Create & Continue to Video Upload
-                </button>
-              </div>
+              <button type="submit" className="w-full bg-amber-500 hover:bg-amber-400 text-white font-extrabold py-4 rounded-xl transition-all shadow-lg shadow-amber-900/30 text-lg">
+                Create Course →
+              </button>
             </form>
           </div>
         )}
 
+        {/* Courses Grid */}
         <div>
-          <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 mb-8 border-b border-gray-200 pb-5">
-            Your Active Courses <span className="ml-3 bg-gray-100 border border-gray-200 text-gray-700 rounded-full px-4 py-1.5 text-sm">{courses.length}</span>
+          <h3 className="text-xl font-extrabold text-white mb-6 flex items-center gap-3">
+            Your Courses
+            <span className="bg-white/8 border border-white/10 text-gray-400 rounded-full px-3 py-1 text-sm font-bold">{courses.length}</span>
           </h3>
-          
+
           {courses.length === 0 ? (
-            <div className="bg-white p-20 rounded-2xl border border-gray-100 shadow-sm text-center">
-              <p className="text-2xl text-gray-900 font-extrabold tracking-tight mb-2">No Courses Created</p>
-              <p className="text-lg text-gray-500 font-medium">Click the button above to start your first text + video course.</p>
+            <div className="bg-white/3 border border-white/8 rounded-3xl p-20 text-center">
+              <p className="text-2xl font-extrabold text-white mb-2">No Courses Yet</p>
+              <p className="text-gray-500 font-medium">Click &quot;+ New Course&quot; above to get started.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {courses.map((course) => (
-                <div key={course.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 p-8 flex flex-col h-full group border-2 border-transparent hover:border-blue-100">
-                  <h4 className="text-2xl font-extrabold text-gray-900 tracking-tight mb-3 line-clamp-2 leading-snug">{course.title}</h4>
-                  <p className="text-gray-500 font-medium text-sm leading-relaxed mb-8 line-clamp-3 flex-grow">{course.description}</p>
-                  
-                  {course.video_url && (
-                    <div className="mb-8 inline-flex">
-                      <span className="bg-green-50 text-green-700 border border-green-200 px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-widest shadow-sm">
-                        Video Linked
-                      </span>
-                    </div>
-                  )}
-                  
-                  <div className="mt-auto pt-6 border-t border-gray-100">
-                    <Link
-                      href={`/course/${course.id}`}
-                      className="inline-flex w-full justify-center items-center bg-gray-50 text-blue-600 font-extrabold px-4 py-3.5 rounded-xl hover:bg-blue-600 hover:text-white transition-colors border border-gray-200 hover:border-transparent shadow-sm tracking-wide"
-                    >
-                      Manage Video & Text
-                    </Link>
+                <div key={course.id} className="bg-white/3 border border-white/8 rounded-3xl p-6 flex flex-col hover:border-white/15 hover:bg-white/5 transition-all duration-300">
+                  <div className="h-32 bg-gradient-to-br from-amber-900/30 to-orange-900/30 rounded-2xl mb-5 flex items-center justify-center relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-600/10 to-orange-600/10 group-hover:from-amber-600/20 group-hover:to-orange-600/20 transition-all"></div>
+                    <svg className="w-8 h-8 text-amber-500/50" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    {course.video_url && (
+                      <div className="absolute top-2 right-2 bg-green-500/20 border border-green-500/30 text-green-400 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-widest">
+                        Video
+                      </div>
+                    )}
                   </div>
+                  <h4 className="text-lg font-extrabold text-white mb-2 line-clamp-2">{course.title}</h4>
+                  <p className="text-gray-500 text-sm font-medium leading-relaxed line-clamp-3 flex-1 mb-5">{course.description}</p>
+                  <Link
+                    href={`/course/${course.id}`}
+                    className="w-full text-center bg-white/8 border border-white/10 text-gray-300 hover:bg-amber-500/15 hover:text-amber-400 hover:border-amber-500/20 font-bold py-3 rounded-xl transition-all text-sm"
+                  >
+                    Manage Course
+                  </Link>
                 </div>
               ))}
             </div>

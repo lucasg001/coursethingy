@@ -68,7 +68,7 @@ export default function LessonEditor() {
         if (!found) console.error("Lesson not found")
       }
       setLoading(false)
-    } catch (err) {
+    } catch {
       setLoading(false)
     }
   }

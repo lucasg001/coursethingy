@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import StudentSidebar from '@/components/StudentSidebar'
 
 interface Course {
   id: string
@@ -14,93 +15,146 @@ interface Course {
 
 export default function Courses() {
   const [courses, setCourses] = useState<Course[]>([])
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set())
+  const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      const currentUser = session?.user || null
-      setUser(currentUser)
       
-      const { data, error } = await supabase.from('courses').select('*')
-      
-      if (!error && data) {
-         setCourses(data)
+      if (!session) {
+        router.push('/login')
+        return
       }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single()
+        
+      if (profile?.role === 'creator') {
+        router.push('/dashboard')
+        return
+      }
+
+      setUser(session.user)
+
+      const { data: followsData } = await supabase.from('creator_followers').select('creator_id').eq('student_id', session.user.id)
+      if (followsData) {
+        const followSet = new Set<string>()
+        followsData.forEach(f => followSet.add(f.creator_id))
+        setFollowingIds(followSet)
+      }
+
+      const { data: enrollsData } = await supabase.from('course_enrollments').select('course_id').eq('student_id', session.user.id)
+      if (enrollsData) {
+        const enrollSet = new Set<string>()
+        enrollsData.forEach(e => enrollSet.add(e.course_id))
+        setEnrolledIds(enrollSet)
+      }
+
+      const { data, error } = await supabase.from('courses').select('*')
+      if (!error && data) setCourses(data)
       setLoading(false)
     }
     
     init()
-  }, [])
+  }, [router])
+
+  const handleEnroll = async (e: React.MouseEvent, courseId: string) => {
+    e.preventDefault()
+    if (!user) { router.push('/login'); return }
+
+    const { error } = await supabase.from('course_enrollments').insert({ student_id: user.id, course_id: courseId })
+
+    if (!error) {
+      setEnrolledIds(prev => { const next = new Set(prev); next.add(courseId); return next })
+      const { data: profile } = await supabase.from('profiles').select('points').eq('id', user.id).single()
+      if (profile) {
+        await supabase.from('profiles').update({ points: (profile.points || 0) + 50 }).eq('id', user.id)
+        window.dispatchEvent(new Event('gamification_update'))
+      }
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-blue-100 selection:text-blue-900">
-      <nav className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5 flex justify-between items-center transition-all">
-          <Link href="/" className="text-2xl font-extrabold tracking-tight text-blue-900 hover:text-blue-700 transition-colors">
-            Course Platform
-          </Link>
-          <div className="flex gap-4 items-center">
-             <Link href="/dashboard" className="px-5 py-2.5 rounded-lg bg-gray-50 text-gray-700 font-bold hover:bg-gray-100 hover:text-gray-900 transition-all shadow-sm border border-transparent hover:border-gray-200">
-               Creator Studio
-             </Link>
-          </div>
-        </div>
-      </nav>
-
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
-        <div className="mb-14 border-b border-gray-200 pb-8 flex flex-col md:flex-row justify-between md:items-end gap-6">
-          <div>
-            <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight leading-tight">Student Catalog</h1>
-            <p className="text-xl text-gray-500 font-medium mt-3">Discover and learn from modules published by other users.</p>
-          </div>
-          <div className="bg-white px-5 py-2 rounded-xl border border-gray-200 shadow-sm">
-             <span className="font-extrabold text-gray-400 text-sm uppercase tracking-widest block mb-1">Status</span>
-             <span className="font-bold text-gray-900">{user ? 'Signed In' : 'Browsing Anonymously'}</span>
-          </div>
+    <div className="min-h-screen bg-[#0a0a0f] flex font-sans">
+      <StudentSidebar />
+      <div className="flex-1 overflow-y-auto h-screen relative">
+        {/* Background glows */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-blue-700/8 rounded-full blur-[100px]"></div>
+          <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-blue-700/6 rounded-full blur-[80px]"></div>
         </div>
 
-        {loading ? (
-          <div className="text-center py-20 text-gray-500 font-bold text-xl tracking-wide">Scanning database for content...</div>
-        ) : courses.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-24 text-center">
-            <h3 className="text-3xl font-extrabold tracking-tight text-gray-900 mb-4">No content found</h3>
-            <p className="text-xl text-gray-500 font-medium">There are no external courses available on the platform right now.</p>
+        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 py-12">
+          <div className="mb-12">
+            <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold px-3 py-1.5 rounded-full mb-4 tracking-wide uppercase">
+              📚 Course Catalog
+            </div>
+            <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight mb-3">Student Catalog</h1>
+            <p className="text-gray-400 font-medium text-lg">Follow creators you love, enroll in their courses, and start learning.</p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {courses.map((course) => (
-              <Link key={course.id} href={`/play/${course.id}`} className="group h-full">
-                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden h-full flex flex-col">
-                  <div className="bg-gradient-to-br from-blue-500 to-indigo-600 h-56 w-full group-hover:scale-105 transition-transform duration-500 relative flex items-center justify-center">
-                    <span className="text-white font-extrabold text-2xl opacity-40 tracking-widest uppercase">Video Module</span>
-                    <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
+
+          {loading ? (
+            <div className="text-center py-20 text-gray-500 font-bold text-xl">Scanning courses...</div>
+          ) : courses.length === 0 ? (
+            <div className="bg-white/3 border border-white/8 rounded-3xl p-24 text-center">
+              <h3 className="text-3xl font-extrabold text-white mb-4">No courses yet</h3>
+              <p className="text-gray-500 font-medium text-xl">Check back soon as creators publish new content.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {courses.map((course) => {
+                const followsCreator = followingIds.has(course.instructor_id)
+                const isEnrolled = enrolledIds.has(course.id)
+
+                return (
+                  <div key={course.id} className="bg-white/3 border border-white/8 rounded-3xl overflow-hidden hover:border-white/15 hover:bg-white/5 transition-all duration-300 group flex flex-col">
+                    {/* Thumbnail */}
+                    <div className="h-44 bg-blue-900/50 relative flex items-center justify-center overflow-hidden">
+                      <div className="absolute inset-0 bg-blue-600/20 group-hover:bg-blue-600/30 transition-all duration-500"></div>
+                      <svg className="w-12 h-12 text-white/20 group-hover:text-white/30 transition-all duration-300" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                      {isEnrolled && (
+                        <div className="absolute top-3 right-3 bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur-sm">
+                          ✓ Enrolled
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="p-6 flex flex-col flex-1">
+                      <h3 className="font-extrabold text-xl text-white tracking-tight line-clamp-2 leading-snug mb-2">{course.title}</h3>
+                      <p className="text-gray-500 text-sm font-medium line-clamp-3 flex-1 leading-relaxed mb-6">{course.description}</p>
+
+                      <div className="pt-4 border-t border-white/8">
+                        {isEnrolled ? (
+                          <button onClick={(e) => { e.preventDefault(); router.push(`/play/${course.id}`) }}
+                            className="w-full bg-green-500/15 border border-green-500/20 text-green-400 hover:bg-green-500/20 font-extrabold py-3 rounded-xl transition-all text-sm">
+                            Continue Learning →
+                          </button>
+                        ) : followsCreator ? (
+                          <button onClick={(e) => handleEnroll(e, course.id)}
+                            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-3 rounded-xl transition-all shadow-lg shadow-blue-900/30 text-sm">
+                            Enroll — +50 XP
+                          </button>
+                        ) : (
+                          <button onClick={() => router.push('/creators')}
+                            className="w-full bg-white/5 border border-white/10 text-gray-500 hover:text-gray-300 hover:border-white/20 font-bold py-3 rounded-xl transition-all text-sm">
+                            🔒 Follow Creator to Enroll
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-8 md:p-10 flex-grow flex flex-col relative bg-white">
-                    <div className="absolute -top-6 left-8 bg-white p-1 rounded-full shadow-sm">
-                       <div className="bg-blue-50 text-blue-700 font-extrabold rounded-full w-10 h-10 flex items-center justify-center shadow-inner">
-                         <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                       </div>
-                    </div>
-                    <div className="flex justify-between items-start mt-4 mb-4">
-                       <h3 className="font-extrabold text-2xl text-gray-900 tracking-tight line-clamp-2 leading-snug pr-2">{course.title}</h3>
-                       {user?.id === course.instructor_id && (
-                         <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shadow-sm border border-green-200">Yours</span>
-                       )}
-                    </div>
-                    <p className="text-gray-500 text-sm leading-relaxed mb-8 line-clamp-3 flex-grow font-medium">{course.description}</p>
-                    <div className="mt-auto pt-6 border-t border-gray-100">
-                      <span className="text-blue-600 font-bold bg-blue-50 px-4 py-3.5 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 w-full text-center block shadow-sm border border-blue-100 group-hover:border-transparent">
-                        Take this course
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 interface VideoUploadProps {
@@ -13,6 +13,11 @@ export default function VideoUpload({ courseId, onVideoUploaded, currentVideoUrl
   const [videoUrl, setVideoUrl] = useState(currentVideoUrl || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Sync internal state if parent provides a new currentVideoUrl
+  useEffect(() => {
+    setVideoUrl(currentVideoUrl || '')
+  }, [currentVideoUrl])
 
   const handleSaveUrl = async (e: React.FormEvent) => {
     e.preventDefault()

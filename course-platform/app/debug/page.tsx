@@ -71,7 +71,7 @@ export default function Debug() {
             <p className="text-gray-600">{status.auth}</p>
           </div>
 
-          <div className="border-l-4 border-purple-500 pl-4 py-2">
+          <div className="border-l-4 border-blue-500 pl-4 py-2">
             <h3 className="font-semibold">Database Tables</h3>
             <p className="text-gray-600">{status.tables}</p>
           </div>
